@@ -1,12 +1,12 @@
 #include <cassert>
 #include <iostream>
 #include <magic_enum/magic_enum.hpp>
+#include <optional>
 #include <parser.hpp>
 #include <string>
 #include <token.hpp>
 #include <vector>
 
-// Forward declarations since I love C++!
 Statement parse_statement(std::vector<Token *>::iterator &it);
 
 bool match(std::vector<Token *>::iterator &it, const std::string &v) {
@@ -48,16 +48,30 @@ Type *parse_type(std::vector<Token *>::iterator &it) {
     return new Type(value);
 }
 Expression parse_expression(std::vector<Token *>::iterator &it) {
-    auto value = expect(it, TokenKind::INTEGER);
-    return new Integer(value);
+    if (peek(it, TokenKind::ID)) {
+        auto value = expect(it, TokenKind::ID);
+        return new Integer(value);
+    } else if (peek(it, TokenKind::INTEGER)) {
+        auto value = expect(it, TokenKind::INTEGER);
+        return new Integer(value);
+    }
+    __builtin_unreachable();
 }
 VariableDeclaration *parse_variable_declaration(std::vector<Token *>::iterator &it) {
     expect(it, "let");
     auto id = expect(it, TokenKind::ID);
-    expect(it, TokenKind::COLON);
-    auto type = parse_type(it);
-    expect(it, TokenKind::ASSIGN);
-    auto expression = parse_expression(it);
+
+    Type *type = nullptr;
+    if (peek(it, TokenKind::COLON)) {
+        expect(it, TokenKind::COLON);
+        type = parse_type(it);
+    }
+
+    std::optional<Expression> expression = std::nullopt;
+    if (peek(it, TokenKind::ASSIGN)) {
+        expect(it, TokenKind::ASSIGN);
+        expression = parse_expression(it);
+    }
     expect(it, TokenKind::SEMICOLON);
 
     return new VariableDeclaration(id, type, expression);
@@ -86,7 +100,11 @@ FunctionDeclaration *parse_function_declaration(std::vector<Token *>::iterator &
 }
 Return *parse_return(std::vector<Token *>::iterator &it) {
     expect(it, "return");
-    auto expression = parse_expression(it);
+
+    std::optional<Expression> expression = std::nullopt;
+    if (!peek(it, TokenKind::SEMICOLON)) {
+        expression = parse_expression(it);
+    }
     expect(it, TokenKind::SEMICOLON);
 
     return new Return(expression);

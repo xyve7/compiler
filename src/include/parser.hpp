@@ -1,18 +1,20 @@
 #pragma once
 
+#include <optional>
 #include <ostream>
 #include <token.hpp>
 #include <variant>
 #include <vector>
 
 class VariableDeclaration;
+class VariableReference;
 class FunctionDeclaration;
 class Return;
 class Integer;
 class String;
 std::ostream &operator<<(std::ostream &os, const FunctionDeclaration &v);
 
-using Expression = std::variant<Integer *, String *>;
+using Expression = std::variant<Integer *, String *, VariableReference *>;
 using Statement = std::variant<VariableDeclaration *, FunctionDeclaration *, Return *>;
 
 class Type {
@@ -49,25 +51,40 @@ class VariableDeclaration {
   public:
     Token *name;
     Type *type;
-    Expression rhs;
-    VariableDeclaration(Token *name, Type *type, Expression rhs) : name(name), type(type), rhs(rhs) {}
+    std::optional<Expression> rhs;
+    VariableDeclaration(Token *name, Type *type, std::optional<Expression> rhs) : name(name), type(type), rhs(rhs) {}
     friend std::ostream &operator<<(std::ostream &os, const VariableDeclaration &v) {
         os << "let " << v.name->value << " = ";
-        if (auto i = std::get_if<Integer *>(&v.rhs)) {
-            os << **i;
+        if (v.rhs.has_value()) {
+            if (auto i = std::get_if<Integer *>(&*v.rhs)) {
+                os << **i;
+            }
         }
         os << ";";
         return os;
     }
 };
+class VariableReference {
+  public:
+    Token *name;
+    VariableDeclaration *actual;
+    VariableReference(Token *name) : name(name), actual(nullptr) {}
+    friend std::ostream &operator<<(std::ostream &os, const VariableReference &v) {
+        os << v.name->value << " (reference to " << *v.actual << ")";
+        return os;
+    }
+};
+
 class Return {
   public:
-    Expression rhs;
+    std::optional<Expression> rhs;
     Return(Expression rhs) : rhs(rhs) {}
     friend std::ostream &operator<<(std::ostream &os, const Return &v) {
         os << "return ";
-        if (auto i = std::get_if<Integer *>(&v.rhs)) {
-            os << **i;
+        if (v.rhs.has_value()) {
+            if (auto i = std::get_if<Integer *>(&*v.rhs)) {
+                os << **i;
+            }
         }
         os << ";";
         return os;
