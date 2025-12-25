@@ -12,9 +12,10 @@ class FunctionDeclaration;
 class Return;
 class Integer;
 class String;
+class BinaryOp;
 std::ostream &operator<<(std::ostream &os, const FunctionDeclaration &v);
 
-using Expression = std::variant<Integer *, String *, VariableReference *>;
+using Expression = std::variant<Integer *, String *, VariableReference *, BinaryOp *>;
 using Statement = std::variant<VariableDeclaration *, FunctionDeclaration *, Return *>;
 
 class Type {
@@ -47,6 +48,34 @@ class String {
     }
 };
 
+class BinaryOp {
+  public:
+    std::optional<Expression> lhs;
+    char op;
+    std::optional<Expression> rhs;
+    BinaryOp(std::optional<Expression> lhs, char op, std::optional<Expression> rhs) : lhs(lhs), op(op), rhs(rhs) {}
+    friend std::ostream &operator<<(std::ostream &os, const BinaryOp &v) {
+        os << "(";
+        if (v.lhs.has_value()) {
+            if (auto i = std::get_if<Integer *>(&*v.lhs)) {
+                os << **i;
+            } else if (auto i = std::get_if<BinaryOp *>(&*v.lhs)) {
+                os << **i;
+            }
+        }
+        os << " " << v.op << " ";
+        if (v.rhs.has_value()) {
+            if (auto i = std::get_if<Integer *>(&*v.rhs)) {
+                os << **i;
+            } else if (auto i = std::get_if<BinaryOp *>(&*v.rhs)) {
+                os << **i;
+            }
+        }
+        os << ")";
+        return os;
+    }
+};
+
 class VariableDeclaration {
   public:
     Token *name;
@@ -57,6 +86,8 @@ class VariableDeclaration {
         os << "let " << v.name->value << " = ";
         if (v.rhs.has_value()) {
             if (auto i = std::get_if<Integer *>(&*v.rhs)) {
+                os << **i;
+            } else if (auto i = std::get_if<BinaryOp *>(&*v.rhs)) {
                 os << **i;
             }
         }
@@ -78,11 +109,13 @@ class VariableReference {
 class Return {
   public:
     std::optional<Expression> rhs;
-    Return(Expression rhs) : rhs(rhs) {}
+    Return(std::optional<Expression> rhs) : rhs(rhs) {}
     friend std::ostream &operator<<(std::ostream &os, const Return &v) {
         os << "return ";
         if (v.rhs.has_value()) {
             if (auto i = std::get_if<Integer *>(&*v.rhs)) {
+                os << **i;
+            } else if (auto i = std::get_if<BinaryOp *>(&*v.rhs)) {
                 os << **i;
             }
         }
@@ -97,9 +130,11 @@ class Block {
     friend std::ostream &operator<<(std::ostream &os, const Block &v) {
         for (auto s : v.statements) {
             if (auto d = std::get_if<VariableDeclaration *>(&s)) {
-                os << **d << "\n";
+                os << "\t" << **d << "\n";
             } else if (auto d = std::get_if<FunctionDeclaration *>(&s)) {
                 os << **d << "\n";
+            } else if (auto d = std::get_if<Return *>(&s)) {
+                os << "\t" << **d << "\n";
             }
         }
         return os;
@@ -114,7 +149,7 @@ class FunctionDeclaration {
     Block *body;
     FunctionDeclaration(Token *name, std::vector<VariableDeclaration *> &&arguments, Type *type, Block *body) : name(name), arguments(arguments), type(type), body(body) {}
     friend std::ostream &operator<<(std::ostream &os, const FunctionDeclaration &v) {
-        os << "fn " << v.name->value << "() {\n"
+        os << "fn " << v.name->value << "(): " << *v.type << " {\n"
            << *v.body << "}\n";
         return os;
     }

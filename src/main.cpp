@@ -1,4 +1,3 @@
-#include <codegen.hpp>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -19,7 +18,5 @@ int main(int argc, char *argv[]) {
     auto tokens = tokenize(source);
     auto root = parse(tokens);
 
-    Codegen::Context codegen(root);
-    codegen.emit();
-    std::cout << codegen.assembly() << "\n";
+    std::cout << *root;
 }

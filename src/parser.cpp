@@ -8,6 +8,9 @@
 #include <vector>
 
 Statement parse_statement(std::vector<Token *>::iterator &it);
+Expression parse_expression(std::vector<Token *>::iterator &it);
+Expression parse_term(std::vector<Token *>::iterator &it);
+Expression parse_factor(std::vector<Token *>::iterator &it);
 
 bool match(std::vector<Token *>::iterator &it, const std::string &v) {
     auto id = **it;
@@ -48,12 +51,42 @@ Type *parse_type(std::vector<Token *>::iterator &it) {
     return new Type(value);
 }
 Expression parse_expression(std::vector<Token *>::iterator &it) {
-    if (peek(it, TokenKind::ID)) {
-        auto value = expect(it, TokenKind::ID);
-        return new Integer(value);
-    } else if (peek(it, TokenKind::INTEGER)) {
+    auto lhs = parse_term(it);
+    while (peek(it, TokenKind::PLUS) || peek(it, TokenKind::MINUS)) {
+        char op;
+        if (match(it, TokenKind::PLUS)) {
+            op = '+';
+        } else {
+            op = '-';
+        }
+        auto rhs = parse_term(it);
+        lhs = new BinaryOp(lhs, op, rhs);
+    }
+    return lhs;
+}
+Expression parse_term(std::vector<Token *>::iterator &it) {
+    auto lhs = parse_factor(it);
+    while (peek(it, TokenKind::ASTERISK) || peek(it, TokenKind::SLASH)) {
+        char op;
+        if (match(it, TokenKind::ASTERISK)) {
+            op = '*';
+        } else {
+            op = '/';
+        }
+        auto rhs = parse_factor(it);
+        lhs = new BinaryOp(lhs, op, rhs);
+    }
+    return lhs;
+}
+Expression parse_factor(std::vector<Token *>::iterator &it) {
+    if (peek(it, TokenKind::INTEGER)) {
         auto value = expect(it, TokenKind::INTEGER);
         return new Integer(value);
+    } else if (peek(it, TokenKind::OPEN_PAREN)) {
+        expect(it, TokenKind::OPEN_PAREN);
+        auto expression = parse_expression(it);
+        expect(it, TokenKind::CLOSE_PAREN);
+        return expression;
     }
     __builtin_unreachable();
 }
